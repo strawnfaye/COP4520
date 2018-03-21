@@ -4,21 +4,40 @@
 #include<atomic>
 #include<chrono>
 
+struct MainNode;
+struct KeyType;
+struct ValueType;
+struct INode;
+struct SNode;
+struct CNode;
+
+struct KeyType 
+{
+	// generics
+};
+
+struct ValueType 
+{
+	// generics
+};
+
 struct INode 
 {
-    // main: MainNode
+    MainNode main;
+	bool isEmpty;
+	// can be an SNode or CNode
 };
 
 struct SNode 
 {
-    int keyType;
-    int valueType;
+	KeyType key;
+	ValueType value;
     bool tomb;
 
-    SNode(int keyType, int valueType, bool tomb)
+    SNode(KeyType key, ValueType value, bool tomb)
     {
-        this->keyType = keyType;
-        this->valueType = valueType;
+        this->key = key;
+        this->value= value;
         this->tomb = tomb;
     }
 };
@@ -26,13 +45,49 @@ struct SNode
 struct CNode 
 {
     int bitMap;
-    std::vector<SNode*> array;  // branch factor = 2^W
+    std::vector<INode*> array;  // branch factor = 2^W
 
-    CNode()
+    CNode(SNode n)
     {
         
     }
 };
+
+struct MainNode
+{
+	// use generics later
+	SNode s;
+	CNode c;
+
+	MainNode(CNode c, SNode s)
+	{
+		if(CNode != NULL)
+			this->c = c;
+		else
+			this->s = s;
+	}
+
+};
+
+INode root;
+bool isNullINode(INode n); // INode points to nothing
+
+
+void insert(KeyType key, ValueType value)
+{
+	INode r = root;
+	if( r.isEmpty || isNullINode(r))
+	{
+		// replace root reference with new CNode with appropriate key
+		
+	}
+	else
+	{
+		MainNode next = r.main;
+
+	}
+
+}
 
 /*
 
