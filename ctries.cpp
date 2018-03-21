@@ -21,53 +21,66 @@ struct ValueType
 	// generics
 };
 
-struct INode 
+enum NodeType
 {
-    MainNode main;
-	bool isEmpty;
-	// can be an SNode or CNode
+	t_INode,
+	t_CNode,
+	t_SNode
 };
 
-struct SNode 
+class TNode
+{
+	 NodeType type;
+	 
+	 public:
+		void setNodeType (NodeType type)
+		{
+			this->NodeType = type;
+		}
+}
+
+class INode: public TNode
+{
+    TNode main;
+	bool isEmpty;
+	// can be an SNode or CNode
+	
+	public:
+		INode()
+		{
+			setNodeType(t_INode);
+		}
+};
+
+class SNode: public TNode
 {
 	KeyType key;
 	ValueType value;
     bool tomb;
 
-    SNode(KeyType key, ValueType value, bool tomb)
-    {
-        this->key = key;
-        this->value= value;
-        this->tomb = tomb;
-    }
+	public:
+		SNode(KeyType key, ValueType value, bool tomb)
+		{
+			setNodeType(t_SNode);
+			this->key = key;
+			this->value= value;
+			this->tomb = tomb;
+		}
 };
 
-struct CNode 
+class CNode: public TNode
 {
     int bitMap;
     std::vector<INode*> array;  // branch factor = 2^W
 
-    CNode(SNode n)
-    {
-        
-    }
+	public:
+		CNode(SNode n)
+		{
+			setNodeType(t_CNode);
+		}
 };
 
-struct MainNode
-{
-	// use generics later
-	SNode s;
-	CNode c;
 
-	MainNode(CNode c, SNode s)
-	{
-		if(CNode != NULL)
-			this->c = c;
-		else
-			this->s = s;
-	}
-
-};
 
 INode root;
 bool isNullINode(INode n); // INode points to nothing
