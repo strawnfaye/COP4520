@@ -76,7 +76,99 @@ class TNode
 				}
 			}
 		}
-}
+
+		AnyRef lookup(KeyType k, int hashCode, int level, AnyRef m, INode parent)
+		{
+			switch(m)
+			{
+				case CNode:
+				{
+					int index = (hashCode >> level) & 0x1f);
+					int bitMap = m.bitMap;
+					int flag = 1 << index;
+					if((bitMap & flag) == 0)	// Bitmap shoes no binding
+						return NULL;
+					else	// bitmap contains a value - descend
+					{
+						std::bitset<32> foo (bitMap & (flag-1));
+						int position = foo.count();
+						int subINode = m.array[position];
+						subINode.lookup(key, hashCode, level + 5, subINode.main, this);
+					}
+					break;
+				}
+				case SNode:
+				{
+					if(!m.tomb)	// Singleton node
+					{
+						if(m.hashCode == hashCode && m.key == key)
+							return (AnyRef) sn.v;
+						else
+							return NULL;
+					}
+					else	// Non-live node
+					{
+						clean(parent);
+						// throw restartexception
+					}
+					break;
+				}
+				case NULL:
+				{
+					if(parent != NULL)
+					{
+						clean(parent);
+						// throw restartexception
+					}
+					else
+						return NULL;
+				}
+			}
+		}
+
+		T remove(KeyType key, int hashCode, int level, INode parent)
+		{
+			INode m = parent.main;
+
+			switch(m)
+			{
+				case SNode:
+				{
+					if(!m.tomb)	// Singleton node
+					{
+						if(m.hashCode == hashCode && m.key == key)
+						{
+							if(CAS(m, NULL))
+								return m.value;
+							else
+								return null;
+						}
+						else
+						{
+							return null;
+						}
+					}
+					break;
+				}
+				case CNode:
+					int index = (hashCode >> level) & 0x1f);
+					int bitMap = m.bitMap;
+					int flag = 1 << index;
+					if((bitMap & flag) == 0)	// Binding not found
+						return NULL;
+					else
+					{
+						std::bitset<32> foo (bitMap & (flag-1));
+						int position = foo.count();
+						int res = m.array[position].remove(key, hashCode, level + 5, this);
+
+						// Start compression
+						// Yikes, scala
+					}
+			}
+
+		}
+};
 
 class INode: public TNode
 {
