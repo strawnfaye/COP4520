@@ -41,11 +41,7 @@ class TNode
 		
 		bool insert(KeyType key, ValueType value, int hashCode, int level, TNode parent)
 		{
-			if (this == nullptr)	//check if null pointer
-			{
-				//root is null
-			}
-			else if( this->NodeType == t_INode)	//is INode?
+			if( this->NodeType == t_INode)	//is INode?
 			{
 				if (this.isNull())	//points to null?
 				{
@@ -74,6 +70,58 @@ class TNode
 						INode *arr = ;
 					}
 				}
+			}
+		}
+		
+		TNode lookup(KeyType k, int hashCode, int level, TNode m, INode parent)
+		{
+			switch(m->NodeType)
+			{
+				case t_CNode:
+				{
+					int index = (hashCode >> level) & 0x1f);
+					int bitMap = m.bitMap;
+					int flag = 1 << index;
+					if((bitMap & flag) == 0)	// Bitmap shoes no binding
+						return NULL;
+					else	// bitmap contains a value - descend
+					{
+						std::bitset<32> foo (bitMap & (flag-1));
+						int position = foo.count();
+						int subINode = m.array[position];
+						subINode.lookup(key, hashCode, level + 5, subINode.main, this);
+					}
+					break;
+				}
+				case t_SNode:
+				{
+					if(!m.tomb)	// Singleton node
+					{
+						if(m.hashCode == hashCode && m->key == key)
+							return (AnyRef) sn.v;
+						else
+							return NULL;
+					}
+					else	// Non-live node
+					{
+						clean(parent);
+						// throw restartexception
+					}
+					break;
+				}
+				/*
+				case NULL:
+				{
+					if(parent != NULL)
+					{
+						clean(parent);
+						// throw restartexception
+					}
+					else
+						return NULL;
+				}
+				*/
+				//case null unreachable: calling method on null object results in runtime exception
 			}
 		}
 }
@@ -130,54 +178,7 @@ class CNode: public TNode
 
 INode* root;
 
-AnyRef lookup(KeyType k, int hashCode, int level, AnyRef m, INode parent)
-{
-	switch(m)
-	{
-		case CNode:
-		{
-			int index = (hashCode >> level) & 0x1f);
-			int bitMap = m.bitMap;
-			int flag = 1 << index;
-			if((bitMap & flag) == 0)	// Bitmap shoes no binding
-				return NULL;
-			else	// bitmap contains a value - descend
-			{
-				std::bitset<32> foo (bitMap & (flag-1));
-				int position = foo.count();
-				int subINode = m.array[position];
-				subINode.lookup(key, hashCode, level + 5, subINode.main, this);
-			}
-			break;
-		}
-		case SNode:
-		{
-			if(!m.tomb)	// Singleton node
-			{
-				if(m.hashCode == hashCode && m.key == key)
-					return (AnyRef) sn.v;
-				else
-					return NULL;
-			}
-			else	// Non-live node
-			{
-				clean(parent);
-				// throw restartexception
-			}
-			break;
-		}
-		case NULL:
-		{
-			if(parent != NULL)
-			{
-				clean(parent);
-				// throw restartexception
-			}
-			else
-				return NULL;
-		}
-	}
-}
+
 
 T remove(KeyType key, int hashCode, int level, INode parent)
 {
