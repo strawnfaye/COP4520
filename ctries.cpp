@@ -38,18 +38,64 @@ class TNode
 		{
 			this->NodeType = type;
 		}
+		
+		bool insert(KeyType key, ValueType value, int hashCode, int level, TNode parent)
+		{
+			if (this == nullptr)	//check if null pointer
+			{
+				//root is null
+			}
+			else if( this->NodeType == t_INode)	//is INode?
+			{
+				if (this.isNull())	//points to null?
+				{
+					//null INode
+				}
+				else
+				{
+					CNode next = this->main;
+					// Calculate position in bitmap
+					int index = (hashCode >> level) & 0x1f;
+					int bitMap = next.bitMap;
+					int flag = 1 << index;
+					int mask = flag - 1;
+					std::bitset<32> foo (bitMap & mask);
+					int position = foo.count();
+
+					if((bitMap & flag) != 0)
+					{
+						// There is a binding at the positition and it's not null - descend
+						next.array[pos].insert(key, value, hashCode, level + 5, this);
+					}
+					else
+					{
+						// No binding at position - create a new node
+						int length = next.array.length();
+						INode *arr = ;
+					}
+				}
+			}
+		}
 }
 
 class INode: public TNode
 {
-    TNode main;
-	bool isEmpty;
+    TNode* main;
 	// can be an SNode or CNode
 	
 	public:
 		INode()
 		{
 			setNodeType(t_INode);
+		}
+		
+		bool isNull()
+		{
+			//implicit check against nullptr
+			if(main)
+				return true;
+			else
+				return false;
 		}
 };
 
@@ -82,48 +128,7 @@ class CNode: public TNode
 };
 
 
-
-INode root;
-bool isNullINode(INode n); // INode points to nothing
-
-
-bool insert(KeyType key, ValueType value, int hashCode, int level, INode parent)
-{
-	INode r = root;
-	if( r.isEmpty || isNullINode(r))
-	{
-		// Replace root reference with new CNode with appropriate key
-	}
-	else
-	{
-		MainNode next = r.main;
-		if(CNode)
-		{
-			// Calculate position in bitmap
-			int index = (hashCode >> level) & 0x1f;
-			int bitMap = next.bitMap;
-			int flag = 1 << index;
-			int mask = flag - 1;
-			std::bitset<32> foo (bitMap & mask);
-			int position = foo.count();
-
-			if((bitMap & flag) != 0)
-			{
-				// There is a binding at the positition and it's not null - descend
-				next.array[position].insert(key, value, hashCode, level + 5, this);
-			}
-			else
-			{
-				// No binding at position - create a new node
-				int length = next.array.length();
-				INode *arr = ;
-			}
-
-		}
-
-	}
-
-}
+INode* root;
 
 AnyRef lookup(KeyType k, int hashCode, int level, AnyRef m, INode parent)
 {
