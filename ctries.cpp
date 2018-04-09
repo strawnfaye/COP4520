@@ -4,76 +4,75 @@
 #include<atomic>
 #include<chrono>
 
-struct MainNode;
-struct KeyType;
-struct ValueType;
-struct INode;
-struct SNode;
-struct CNode;
-struct AnyRef;
-
-struct KeyType 
-{
-	// generics
-};
-
-struct ValueType 
-{
-	// generics
-};
-
 enum NodeType
 {
-	t_INode,
-	t_CNode,
-	t_SNode
+	t_INode,	//indirection node
+	t_CNode,	//array node with map and pointers
+	t_SNode		//singleton node
 };
 
-class TNode
+INode* root;
+
+public bool rootInsert (KeyType key, ValueType value, int hashCode)
+{
+	if (root == null)
+	{
+		root = new INode(new SNode(key, value, false));
+	}
+	else if (*root == null)
+	{
+		//if root points to null retry insert from null root
+		root = null;
+		rootInsert(key, value, int hashCode);
+	}
+	else
+	{
+		*root.insert(key, value, hashCode, 0, null);
+	}
+}
+
+class Node
 {
 	 NodeType type;
 	 
 	 public:
 		void setNodeType (NodeType type)
 		{
-			this->NodeType = type;
+			this->type = type;
 		}
 		
-		bool insert(KeyType key, ValueType value, int hashCode, int level, TNode parent)
+		bool insert(KeyType key, ValueType value, int hashCode, int level, Node parent)
 		{
-			if( this->NodeType == t_INode)	//is INode?
+			if( this->type == t_INode)	//is INode?
 			{
-				if (this.isNull())	//points to null?
+				CNode next = this->main;
+				// Calculate position in bitmap
+				int index = (hashCode >> level) & 0x1f;
+				int bitMap = next.bitMap;
+				int flag = 1 << index;
+				int mask = flag - 1;
+				std::bitset<32> foo (bitMap & mask);
+				int position = foo.count();
+
+				if((bitMap & flag) != 0)
 				{
-					//null INode
+					// There is a binding at the positition and it's not null - descend
+					next.array[pos].insert(key, value, hashCode, level + 5, this);
 				}
 				else
 				{
-					CNode next = this->main;
-					// Calculate position in bitmap
-					int index = (hashCode >> level) & 0x1f;
-					int bitMap = next.bitMap;
-					int flag = 1 << index;
-					int mask = flag - 1;
-					std::bitset<32> foo (bitMap & mask);
-					int position = foo.count();
-
-					if((bitMap & flag) != 0)
-					{
-						// There is a binding at the positition and it's not null - descend
-						next.array[pos].insert(key, value, hashCode, level + 5, this);
-					}
-					else
-					{
-						// No binding at position - create a new node
-						int length = next.array.length();
-						INode *arr = ;
-					}
+					// No binding at position - create a new node
+					int length = next.array.length();
+					INode *arr = ;
 				}
+			}
+			else
+			{
+				
 			}
 		}
 		
-		TNode lookup(KeyType k, int hashCode, int level, TNode m, INode parent)
+		Node lookup(KeyType k, int hashCode, int level, Node m, INode parent)
 		{
 			switch(m->NodeType)
 			{
@@ -126,28 +125,20 @@ class TNode
 		}
 }
 
-class INode: public TNode
+class INode: public Node
 {
-    TNode* main;
+    Node* main;
 	// can be an SNode or CNode
 	
 	public:
-		INode()
+		INode(Node main)
 		{
 			setNodeType(t_INode);
-		}
-		
-		bool isNull()
-		{
-			//implicit check against nullptr
-			if(main)
-				return true;
-			else
-				return false;
+			this->main = &main;
 		}
 };
 
-class SNode: public TNode
+class SNode: public Node
 {
 	KeyType key;
 	ValueType value;
@@ -163,7 +154,7 @@ class SNode: public TNode
 		}
 };
 
-class CNode: public TNode
+class CNode: public Node
 {
     int bitMap;
     std::vector<INode*> array;  // branch factor = 2^W
@@ -176,7 +167,7 @@ class CNode: public TNode
 };
 
 
-INode* root;
+
 
 
 
