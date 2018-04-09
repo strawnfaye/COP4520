@@ -13,7 +13,7 @@ enum NodeType
 
 INode* root;
 
-public bool rootInsert (KeyType key, ValueType value, int hashCode)
+public bool insert (KeyType key, ValueType value, int hashCode)
 {
 	if (root == null)
 	{
@@ -23,12 +23,12 @@ public bool rootInsert (KeyType key, ValueType value, int hashCode)
 	{
 		//if root points to null retry insert from null root
 		*root = null;
-		rootInsert(key, value, int hashCode);
+		insert(key, value, int hashCode);
 	}
 	else
 	{
 		//root and root reference are valid, insert as normal
-		*root.insert(key, value, hashCode, 0, null);
+		*root.insertHelp(key, value, hashCode, 0, null);
 	}
 }
 
@@ -40,37 +40,6 @@ class Node
 		void setNodeType (NodeType type)
 		{
 			this->type = type;
-		}
-		
-		bool insert(KeyType key, ValueType value, int hashCode, int level, Node parent)
-		{
-			if( this->main->type == t_CNode)	//points to CNode
-			{
-				CNode next = this->main;
-				// Calculate position in bitmap
-				int index = (hashCode >> level) & 0x1f;
-				int bitMap = next.bitMap;
-				int flag = 1 << index;
-				int mask = flag - 1;
-				std::bitset<32> foo (bitMap & mask);
-				int position = foo.count();
-
-				if((bitMap & flag) != 0)
-				{
-					// There is a binding at the positition and it's not null - descend
-					next.array[pos].insert(key, value, hashCode, level + 5, this);
-				}
-				else
-				{
-					// No binding at position - create a new node
-					int length = next.array.length();
-					INode *arr = ;
-				}
-			}
-			else
-			{
-				
-			}
 		}
 		
 		Node lookup(KeyType k, int hashCode, int level, Node m, INode parent)
@@ -135,7 +104,43 @@ class INode: public Node
 		INode(Node main)
 		{
 			setNodeType(t_INode);
-			this->main = &main;
+			this.main = &main;
+		}
+		
+		bool insertHelp(KeyType key, ValueType value, int hashCode, int level, Node parent)
+		{
+			Node main = this.main;
+			
+			switch (main.type)
+			{
+				case t_CNode:
+					CNode cNext = main;
+					// Calculate position in bitmap
+					int index = (hashCode >> level) & 0x1f;
+					int bitMap = cNext.bitMap;
+					int flag = 1 << index;
+					int mask = flag - 1;
+					std::bitset<32> foo (bitMap & mask);
+					int position = foo.count();
+
+					if((bitMap & flag) != 0)
+					{
+						// There is a binding at the positition and it's not null - descend
+						cNext.array[pos].insert(key, value, hashCode, level + 5, this);
+					}
+					else
+					{
+						// No binding at position - create a new node
+						int length = arrayLength(cNext.array);
+						INode *arr = new INode[length+1];
+						arrayCopy(cNext.array, arr);
+						arr[length+1] = new SNode();				//TODO: SNode constructor
+						CNode cNew = new CNode(bmp | flag, arr);
+					}
+					break;
+				case t_SNode:
+					SNode sNext = main;
+			}
 		}
 };
 
@@ -158,7 +163,7 @@ class SNode: public Node
 class CNode: public Node
 {
     int bitMap;
-    std::vector<INode*> array;  // branch factor = 2^W
+    INode* array;  // branch factor = 2^W
 
 	public:
 		CNode(SNode n)
@@ -213,6 +218,20 @@ T remove(KeyType key, int hashCode, int level, INode parent)
 			}
 	}
 
+}
+
+public int arrayLength(T arr[])
+{
+	return (sizeof(arr))/(sizeof(arr[0]));
+}
+
+public void arrayCopy (T src[], T dest[])
+{
+	int srcLength = arrayLength(src);
+	for (int i=0; i<srcLength; i++)
+	{
+		dest[i] = src[i];
+	}
 }
 
 /*
