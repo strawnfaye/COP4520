@@ -17,16 +17,17 @@ public bool rootInsert (KeyType key, ValueType value, int hashCode)
 {
 	if (root == null)
 	{
-		root = new INode(new SNode(key, value, false));
+		*root = new INode(new SNode(key, value, false));
 	}
-	else if (*root == null)
+	else if (root->main == null)
 	{
 		//if root points to null retry insert from null root
-		root = null;
+		*root = null;
 		rootInsert(key, value, int hashCode);
 	}
 	else
 	{
+		//root and root reference are valid, insert as normal
 		*root.insert(key, value, hashCode, 0, null);
 	}
 }
@@ -43,7 +44,7 @@ class Node
 		
 		bool insert(KeyType key, ValueType value, int hashCode, int level, Node parent)
 		{
-			if( this->type == t_INode)	//is INode?
+			if( this->main->type == t_CNode)	//points to CNode
 			{
 				CNode next = this->main;
 				// Calculate position in bitmap
