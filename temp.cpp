@@ -3,11 +3,15 @@
 #include<vector>
 #include<atomic>
 #include<chrono>
+#include<functional>
 
 #define LENGTH 32
 #define W 5
 #define RESTART INT_MIN
 #define NOTFOUND INT_MAX
+
+const unsigned int SK5 = 0x55555555, SK3 = 0x33333333;
+const unsigned int  SKF0 = 0xF0F0F0F, SKFF = 0xFF00FF;
 
 enum NodeType
 {
@@ -20,31 +24,25 @@ template <class T>
 struct KeyType 
 {
     T value;
-    T hashCode;
+    int hashCode;
 
     KeyType(T value)
     {
+        std::hash<T> hash;
         this->value = value;
-        this->hashCode = computeHash(value);
-    }
-
-    T computeHash(T key)
-    {
-        // TODO: compute hashcode from key
+        this->hashCode = hash(value);
     }
 };
 
 template <class T>
 struct SNode 
 {
-    T value;
     KeyType<T> key;
     NodeType type;
     bool tomb;
 
-    SNode(T val, T key, NodeType type, bool tomb)
+    SNode(T key, NodeType type, bool tomb)
     {
-        this->value = val;
         this->type = type;
         this->key = key;
         this->tomb = tomb;
@@ -55,7 +53,7 @@ template <class T>
 struct CNode 
 {
     int bmp;
-    T array[];
+    T array[LENGTH];
 
     CNode(int bmp, T *array)
     {
@@ -84,26 +82,51 @@ class CTrie
     private:
     INode<T> *root;
 
-    bool insert(KeyType<T> key, T value)
+    // Uses bitwise operations and popcount emulation to find appropriate index in 
+    // a CNode's array through its bitmap.
+    int calculateIndex(KeyType<T> key, int level, CNode<T> cn)
+    {
+        int index = (key->hashCode >> level & 0x1f);
+        int bitMap = cn->bmp;
+        int flag = 1 << index;
+        int mask = flag - 1;
+        std::bitset<LENGTH> foo(bitMap & mask);
+        return foo.count();
+    }
+
+    int calculatePrefix(int hash, int k, int p)
+    {
+        return(((1 << k) - 1) & (hash >> (p - 1)));
+    }
+
+    bool insert(KeyType<T> key)
     {
         INode<T> currRoot = root;
         // If root is null or its next pointer is null, then tree is empty.
         if(currRoot == NULL || currRoot->main == NULL)
         {
-            // TODO: replace root reference with new CNode with appropriate key.
-            // scn = CNode(Snode(k, v, weird symbol))
-            // nr = INode(scn)
-            // if !CAS(root, r, nr)
-            //      insert(k ,v)
+            // Create new CNode that contains the new SNode with the key, and a new INode to point to it.
+            CNode<T> cn;
+            SNode<T> sn = new SNode<T>(key, t_SNode, false);
+            INode<T> in;
+            do
+            {
+                int i = calculateIndex(key, 0, currRoot->main);
+                cn->array[i] = sn;
+                // Initialize new INode's main to the new CNode.
+                in->main = cn;
+                // TODO: Compare and swap INode at root.
+                root = in;
+            } while(root != in);           
         }
         // Root points to INode.
-        else if(!iinsert(currRoot, key, value, 0 , NULL))
+        else if(!iinsert(currRoot, key, 0, NULL))
         {
-            insert(key, value);
+            insert(key);
         }
     }
 
-    bool iinsert(INode<T> curr, KeyType<T> key, T value, int level, T parent)
+    bool iinsert(INode<T> curr, KeyType<T> key, int level, T parent)
     {
         switch(curr->type)
         {
@@ -111,52 +134,93 @@ class CTrie
             {
                 // Appropriate entry in array must be found by calculating position in bitmap.
                 int index = (key->hashCode >> level & 0x1f);
-                int bitMap = curr->main.bmp;
+                unsigned int bitMap = curr->bmp;
                 int flag = 1 << index;
                 int mask = flag - 1;
                 std::bitset<LENGTH> foo(bitMap & mask);
                 int position = foo.count();
 
-                // If there is a binding at the position and it's not null, insert below.
+                // If there is a binding at the position in CNode and it's not null, repeat operation recursively.
                 if((bitMap & flag) != 0)
                 {
-                    switch(curr->main.array[position].type)
-                    {
-                        case t_INode: 
-                        {
-                            // Repeat operation recursively.
-                            return iinsert(curr->main, key, value, level + W, curr);
-                            break;
-                        }
-                        case t_SNode: 
-                        {
-                            // TODO: lookup to compare keys and return binding if they are the same.
-                            // If keys are the same, replace old binding.
-                            // Else, extend trie below CNode.
-                            break;
-                        }
-                        default: 
-                            return false;
-                    }
+                    return iinsert(curr->array[position], key, level + W, curr);
                 }
-                // Branch is not in CNode
+                // No binding at position
                 else
                 {
-                    // TODO: create updated copy of current CNode with new key.
-                    // nsn = SNode(k, v, null)
-                    // narr = cn.array.inserted(pos, nsn)
-                    // ncn = CNode(narr, bmp | flag)
-                    // return CAS(curr.main, cn, ncn)
+                    // Create an updated version of CNode containing new key.
+                    T *temp;
+                    int newBitMap;
+                    CNode<T> cn;
+                    SNode<T> sn = new SNode<T>(key, t_SNode, false);
+                    do
+                    {
+                        temp = curr->array;
+                        newBitMap = curr->bmp;
+                        cn = new CNode<T>(newBitMap, temp);
+                        cn.newBitMap & flag = 1;
+                        cn.array[position] = sn;
+                        // TODO: CAS on curr->main
+                        curr= cn;
+                    } while(curr != cn);
+                    return(curr == cn);        
                 }
+                break;
+            }
+            case t_INode:
+            {
+                // Repeat operation recursively.
+                return iinsert(curr->main, key, level + W, curr);
                 break;
             }
             case t_SNode: 
             {
-                // TODO: clean
+                // If this is a tomb node, perform a clean() operation and return.
+                if(curr->tomb)
+                {
+                    if(parent != NULL)
+                        clean(parent);
+                    return true;
+                }
+                else
+                {
+                    T currHash = curr->key.hashCode;
+                    // If this is the same value, replace it with a new binding.
+                    if(currHash == key.hashCode && curr->key.value == key.value)
+                    {
+                        SNode<T> sn = new SNode<T>(key, t_SNode, false);
+                        // TODO: CAS on curr
+                        curr = sn;
+                        return(curr == sn);
+                    }
+                    // Different value but same hash prefix, so extend tree one level down with both keys.
+                    else
+                    {
+                        // Create new CNode containing SNode with this SNode and the new key
+                        CNode<T> cn2;
+                        SNode<T> sn = new SNode<T>(key, t_SNode, false);
+                        int i = calculateIndex(key, level, cn2);
+                        int j = calculateIndex(curr->key, level, cn2);
+                        cn2->array[i] = sn;
+                        cn2->array[j] = curr;
+                        // Create new INode to point to new CNode
+                        INode<T> in;
+                        in->main = cn2;
+                        // Create updated version of parent CNode so that it points to new INode at position SNode is moving from.
+                        CNode<T> cn1;
+                        T *tempArr = parent->array;
+                        int bitMap = parent->bmp;
+                        i = calculateIndex(curr->key, level, cn1);
+                        cn1->array[i]->in;
+                        // TODO: CAS on parent CNode
+                        parent = cn1;
+                        return(parent == cn1);
+                    }
+                }
                 break;
             }
             default: 
-                return false;
+                return true;
         }
     }
 
@@ -291,4 +355,40 @@ class CTrie
                 return NOTFOUND;
         }
     }
+
+    void toCompressed(CNode<T> cn)
+    {
+        
+    }
+
+    void toWeakTombed(CNode<T> cn)
+    {
+
+    }
+
+    void clean(INode<T> i)
+    {
+
+    }
+
+    void tombCompress(INode<T> i)
+    {
+
+    }
+
+    void contractParent(INode<T> parent, INode<T> i, T hashCode, int level)
+    {
+        
+    }
+
+    // Return number of bits set to "1" in a given integer bit map.
+    int popCount(int bitMap)
+    {
+        bitMap -= ((bitMap>>1) & SK5);
+        bitMap = (bitMap & SK3) + ((bitMap >> 2) & SK3);
+        bitMap = (bitMap & SKF0) + ((bitMap >> 4) & SKF0);
+        bitMap += bitMap >> 8;
+        return ((bitMap + (bitMap >> 16)) & 0x3F);
+    }
+    
 };
