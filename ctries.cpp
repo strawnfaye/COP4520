@@ -72,7 +72,35 @@ void clean (INode* parent)
 void compress (CNode* cPtr)		//TODO: go back and check that clean works with this
 {
 	CNode cNode = *mainPtr;
+	int bitMap = cNode.bmp;
+	int maxSubNodes = Integer.bitCount(bitMap);	//TODO: verify bitcount function
 	
+	if (maxSubNodes == 1 && cNode.array[0].isTombed)	//TODO: isTombed()
+	{
+		copyUntombed(cPtr->array[0]);					//TODO: copyunTombed()
+	}
+	else
+	{
+		int nbmp = 0;
+		int i = 0;
+		val arr = array;
+		int nsz = 0;
+		val tmparray = new Array[INode[K, V]](arr.length);
+		while (bitMap != 0) 
+		{ // construct new bitmap
+			val lsb = bmp & (-bmp);
+			val inode = arr(i);
+			val inodemain = inode.mainnode;
+			if (inodemain ne null) 
+			{
+				nbmp |= lsb;
+				tmparray(nsz) = resurrect(inode, inodemain);
+				nsz += 1;
+			}
+			bmp ^= lsb;
+			i += 1;
+		}
+	}
 }
 
 template <typename T>
