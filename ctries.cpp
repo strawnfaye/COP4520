@@ -12,18 +12,18 @@ enum NodeType
 };
 
 template <class T>
-class KeyType
+class Key
 {
 	T value;
 	int hashCode;
 
-	KeyType(T value)
+	Key(T value)
 	{
 		this->value = value;
 		this->hashCode = computeHash(value);
 	}
 
-	T computeHash(T key)
+	T computeHash(T val)
 	{
 		// TODO: compute hashcode from key
 	}
@@ -53,67 +53,27 @@ class INode: public Node
 			setNodeType(t_INode);
 			this->main = &main;
 		}
-		
-		bool insertHelp(KeyType key, int level, Node parent)
-		{
-			Node focus = *main;
-			
-			if (focus == null)
-			{
-				clean(parent);
-				return false;
-			}
-			else if (focus.type == t_CNode)
-			{
-				CNode cNext = focus;
-				// Calculate position in bitmap
-				int index = (hashCode >> level) & 0x1f;
-				int bitMap = cNext.bmp;
-				int flag = 1 << index;
-				int mask = flag - 1;
-				std::bitset<32> foo(bitMap & mask);
-				int position = foo.count();
-
-				if ((bitMap & flag) != 0)
-				{
-					// There is a binding at the positition and it's not null - descend
-					CNode *cPoint = main;
-					return cPoint.array[position].insert(key, level + 5, this);
-				}
-				else
-				{
-					// No binding at position - create a new node
-					int length = arrayLength(cNext.array);
-					INode *arr = new INode[length + 1];
-					arrayCopy(cNext.array, arr);				//TODO: copy function to specifically skip [position]
-					arr[position] = new SNode();				//TODO: SNode constructor (both SNode and CNode need to redirect to INode and bind main)
-					CNode cNew = new CNode(bmp | flag, arr);
-					*main = cNew;
-					return true;
-				}
-			}
-			else if (focus.type == t_SNode)
-			{
-				SNode sNext = main;
-				if (!sNext.tomb)
-				{
-					if (sNext.key == key)
-						return true;
-					else
-					{
-						*main = new CNode(new SNode(key), sNext);	//TODO: CNode constructor to make CNode out of two SNodes
-						return true;
-					}
-				}
-				else
-				{
-					//tomb node-must be updated through parent and reattempted
-					clean(parent);
-					return false;
-				}
-			}
-		}
 };
+
+void clean (INode* parent)
+{
+	Node* mainPtr = parent->main;
+	Node mainNode = *mainPtr;
+	
+	//only CNodes can be compressed
+	if (mainNode.type == t_CNode)
+	{
+		CNode* cPtr = mainPtr;
+		return compress(cPtr);	//TODO: compress()
+	}
+	return;
+}
+
+void compress (CNode* cPtr)		//TODO: go back and check that clean works with this
+{
+	CNode cNode = *mainPtr;
+	
+}
 
 template <typename T>
 class SNode: public Node
@@ -195,27 +155,109 @@ Node lookup(KeyType k, int hashCode, int level, Node m, INode parent)
 	}
 }
 
-bool insert(KeyType key, ValueType value, int hashCode)
+template <class T>
+class CTrie
 {
-	if (root == null)
-	{
-		*root = new INode(new SNode(key, value, false));
-	}
-	else if (root->main == null)
-	{
-		//if root's INode points to null retry insert from null root
-		*root = null;
-		insert(key, value, hashCode);
-	}
-	else
-	{
-		//root and root reference are valid, insert as normal
-		*root.insertHelp(key, value, hashCode, 0, null);
-	}
+	INode *root;
+	
+	public:
+		void insert (T value)
+		{
+			bool success = false;
+			while (success == false)
+			{
+				success = cInsert(root, new Key(value), 0, NULL);
+			}
+		}
+	private:
+		bool cInsert (INode *current, Key key, int level, INode *parent)
+		{	
+			//root check, root null cases get special treatment
+			if (parent == NULL)
+			{
+				//root is null, reassign root
+				if (current == NULL)
+				{
+					*current = new INode(/*node to be inserted*/);	//TODO: INode constructor
+					return true;
+				}
+				//root points to null, set root to null and retry
+				if (*current->main == NULL)
+				{
+					*current = null;
+					return false;
+				}
+			}
+			
+			//null INode
+			if (current->main == NULL)
+			{
+				clean(parent);		//TODO: clean() method
+				return false;
+			}
+			
+			Node* mainPtr = current->main;
+			Node mainNode = *mainPtr;
+			
+			if (mainNode.type == t_CNode)
+			{
+				CNode cNext = mainNode;
+				// Calculate position in bitmap
+				int index = (hashCode >> level) & 0x1f;
+				int bitMap = cNext.bmp;
+				int flag = 1 << index;
+				int mask = flag - 1;
+				std::bitset<32> foo(bitMap & mask);
+				int position = foo.count();
+
+				if ((bitMap & flag) != 0)
+				{
+					// There is a binding at the positition and it's not null - descend
+					CNode* cMain = current->main;
+					INode* iAtPos = cMain->array[position];
+					return cInsert(iAtPos, key, level + 5, current);
+				}
+				else
+				{
+					// No binding at position - create a new node
+					int length = arrayLength(cNext.array);
+					INode* arr = new INode[length + 1];
+					arrayCopy(cNext.array, arr);				//TODO: copy function to specifically skip [position]
+					arr[position] = new SNode();				//TODO: SNode constructor (both SNode and CNode need to redirect to INode and bind main)
+					CNode cNew = new CNode(bmp | flag, arr);	//TODO: CNode constructor
+					
+					delete *current;
+					current = &cNew;
+					return true;
+				}
+			}
+			if (mainNode.type == t_SNode)
+			{
+				SNode sNext = mainNode;
+				if (!sNext.tomb)
+				{
+					if (sNext.key == key)
+						return true;
+					else
+					{
+						CNode cNew = new CNode(new SNode(key), sNext);	//TODO: CNode constructor to make CNode out of two SNodes
+						
+						delete *current;
+						current = &cNew;
+						return true;
+					}
+				}
+				else
+				{
+					//tomb node-clean subtree and reattempted
+					clean(parent);										//TODO: clean() method
+					return false;
+				}
+			}
+			//unreachable: something went wrong
+			return false;
+		}
 }
-
-
-
 T remove(KeyType key, int hashCode, int level, INode parent)
 {
 	INode m = parent.main;
@@ -266,7 +308,6 @@ int arrayLength(T arr[])
 }
 
 template <typename T>
-0
 void arrayCopy (T src[], T dest[])
 {
 	int srcLength = arrayLength(src);
