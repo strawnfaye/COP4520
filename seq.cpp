@@ -44,14 +44,15 @@ bool CTrie::insert(int val)
 
         do
         {
+			INode oldRoot = *root;		//changed
             int i = calculateIndex(key, 0, cnPtr.cn);
             std::cout << "Inserting " << key.value << " into array at root level and index " << i << ".\n";
             cnPtr.cn->addToArray(i, snPtr);
             // Initialize new INode's main to the new CNode.
             inPtr.in = (new INode(t_CNode, cnPtr));
             // TODO: Compare and swap INode at root.
-            root = inPtr.in;
-        } while(root != inPtr.in);
+            //root = inPtr.in;													//changed
+        } while(root.compare_exchange_strong(oldRoot, inPtr.in));				//changed
         std::cout << "Successful insertion at root. Root is pointing to a " << root->type << "\n";
         return true;    
     }
