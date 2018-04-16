@@ -22,6 +22,12 @@ int CTrie::calculateIndex(KeyType key, int level, CNode *cn)
 	return foo.count();
 }
 
+// compare and swap atomic
+/*bool CAS(NodePtr firstVal, NodePtr nextVal)
+{
+	return main.compare_exchange_strong(firstVal, nextVal);
+}*/
+
 bool CTrie::insert(int val)
 {
 	KeyType key = KeyType(val);
@@ -123,8 +129,8 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, NodePtr parent)
 			cnPtr.cn->bmp = newBitMap;
 			cnPtr.cn->addToArray(position, snPtr);
 			// TODO: CAS on curr
-			// change code below
-			// curr = CAS(cnPtr);
+			// do we need 2 CAS functions?
+			//curr = CAS(curr, cnPtr);
 			curr = cnPtr;
 			return(true);
 		}
