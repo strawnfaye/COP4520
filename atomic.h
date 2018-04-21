@@ -19,12 +19,15 @@ enum NodeType
     t_SNode
 };
 
+// A Generic "node" object that holds pointers to
+// each type of node, the type of the node it's actually holding,
+// and a null marker.
 struct NodePtr
 {
     enum NodeType type;
-    struct SNode *sn;
-    struct INode *in;
-    struct CNode *cn;
+    std::atomic<struct SNode> *sn;
+    std::atomic<struct INode> *in;
+    std::atomic<struct CNode> *cn;
     bool isNull;
 };
 
@@ -40,6 +43,7 @@ struct KeyType
     }
 };
 
+// Singleton node.
 struct SNode
 {
     struct KeyType key;
@@ -55,45 +59,55 @@ struct SNode
     }
 };
 
+// Indirection node.
 struct INode 
 {
     enum NodeType type;
     struct NodePtr main;
 
     INode(NodeType type, NodePtr inMain)
-    : main(inMain)
     {
         main = inMain;
-        this->type = type;   
+        this->type = type;
     }
-
 };
 
+// CTrie node - contains array of pointers to both
+// SNodes and INodes, and a bitmap for efficient hashing.
 struct CNode 
 {
-    int bmp;
+    unsigned int bmp;
     NodePtr array[LENGTH];
+
+    void initArray()
+    {
+        for(int i = 0; i < LENGTH; i++)
+        {
+            array[i].isNull = true;
+        }
+    }
 
     void addToArray(int i, NodePtr node)
     {
         array[i] = node;
     }
 
-    NodePtr *copyArray(NodePtr *to)
+    NodePtr *copyArray(NodePtr *from)
     {
         int i;
         for(i = 0; i < LENGTH; i++)
         {
-            to[i] = array[i];
+            array[i] = from[i];
         }
-        return to;
+        return from;
     }
 };
 
+// Lock-Free, Concurrent, Resizeable Hash Array Mapped Trie.
 class CTrie 
 {
     private:
-    INode *root;
+    std::atomic<INode> *root;  
 
     public:
     CTrie()
@@ -104,4 +118,7 @@ class CTrie
     int calculateIndex(KeyType key, int level, CNode *cn);
     bool insert(int val);
     bool iinsert(NodePtr curr, KeyType key, int level, NodePtr parent);
+    bool lookup(int val);
+    int ilookup(NodePtr curr, KeyType key, int level, NodePtr parent);
+
 };

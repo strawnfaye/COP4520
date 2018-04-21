@@ -10,8 +10,7 @@
 #define RESTART INT_MIN
 #define NOTFOUND INT_MAX
 
-const unsigned int SK5 = 0x55555555, SK3 = 0x33333333;
-const unsigned int  SKF0 = 0xF0F0F0F, SKFF = 0xFF00FF;
+struct NodePtr;
 
 enum NodeType
 {
@@ -20,7 +19,7 @@ enum NodeType
     t_SNode
 };
 
-template <class T> 
+template <typename T> 
 struct KeyType 
 {
     T value;
@@ -34,46 +33,55 @@ struct KeyType
     }
 };
 
-template <class T>
-struct SNode 
+template <typename T>
+struct SNode
 {
     KeyType<T> key;
     NodeType type;
     bool tomb;
 
-    SNode(T key, NodeType type, bool tomb)
+    SNode(KeyType<T> key, NodeType type, bool tomb)
     {
+        this->key = KeyType<T>(key.value);
         this->type = type;
-        this->key = key;
         this->tomb = tomb;
     }
 };
 
-template <class T>
+template <typename T>
 struct CNode 
 {
     int bmp;
-    T array[LENGTH];
+    NodePtr<T> array;
 
-    CNode(int bmp, T *array)
-    {
-        this->bmp = bmp;
-        this->array = array;
-    }
+
+    // CNode(int bmp, T *array)
+    // {
+    //     this->bmp = bmp;
+    //     this->array = array;
+    // }
 };
 
-template <class T>
+template <typename T>
 struct INode 
 {
     NodeType type;
-    T main;
+    CNode<T> *main;
 
-    INode(NodeType type, T main)
+    INode(NodeType type, CNode<T> *main)
     {
         this->type = type;
-        this->main = main;       
+        this->main = main;     
     }
 
+};
+
+template<typename T>
+struct NodePtr
+{
+    SNode<T> *sn;
+    CNode<T> *cn;
+    INode<T> *in;
 };
 
 template <class T>
@@ -82,11 +90,13 @@ class CTrie
     private:
     INode<T> *root;
 
+    public:
+
     // Uses bitwise operations and popcount emulation to find appropriate index in 
     // a CNode's array through its bitmap.
-    int calculateIndex(KeyType<T> key, int level, CNode<T> cn)
+    int calculateIndex(KeyType<T> key, int level, CNode<T> *cn)
     {
-        int index = (key->hashCode >> level & 0x1f);
+        int index = (key.hashCode >> level & 0x1f);
         int bitMap = cn->bmp;
         int flag = 1 << index;
         int mask = flag - 1;
@@ -94,35 +104,34 @@ class CTrie
         return foo.count();
     }
 
-    int calculatePrefix(int hash, int k, int p)
-    {
-        return(((1 << k) - 1) & (hash >> (p - 1)));
-    }
-
     bool insert(KeyType<T> key)
     {
-        INode<T> currRoot = root;
+        INode<T> *currRoot = root;
         // If root is null or its next pointer is null, then tree is empty.
         if(currRoot == NULL || currRoot->main == NULL)
         {
+            std::cout << "Tree is empty.\n";
             // Create new CNode that contains the new SNode with the key, and a new INode to point to it.
-            CNode<T> cn;
-            SNode<T> sn = new SNode<T>(key, t_SNode, false);
-            INode<T> in;
+            CNode<T> *cn;
+            SNode<T> *sn = new SNode<T>(key, t_SNode, false);
+            INode<T> *in;
             do
             {
-                int i = calculateIndex(key, 0, currRoot->main);
+                int i = calculateIndex(key, 0, cn);
+                std::cout << "Inserting " << key.value << " into array at root level and index " << i << ".\n";
                 cn->array[i] = sn;
                 // Initialize new INode's main to the new CNode.
                 in->main = cn;
                 // TODO: Compare and swap INode at root.
                 root = in;
-            } while(root != in);           
+            } while(root != in);
+            std::cout << "Successful insertion at root.\n";        
         }
-        // Root points to INode.
+        // Root points to valid INode.
         else if(!iinsert(currRoot, key, 0, NULL))
         {
             insert(key);
+            std::cout << "Successful insertion.\n";
         }
     }
 
@@ -143,6 +152,7 @@ class CTrie
                 // If there is a binding at the position in CNode and it's not null, repeat operation recursively.
                 if((bitMap & flag) != 0)
                 {
+                    std::cout << "Collision at " << position << " and level " << level << "; recursing down.\n";
                     return iinsert(curr->array[position], key, level + W, curr);
                 }
                 // No binding at position
@@ -152,12 +162,12 @@ class CTrie
                     T *temp;
                     int newBitMap;
                     CNode<T> cn;
-                    SNode<T> sn = new SNode<T>(key, t_SNode, false);
+                    SNode<T> sn = SNode<T>(key, t_SNode, false);
                     do
                     {
                         temp = curr->array;
                         newBitMap = curr->bmp;
-                        cn = new CNode<T>(newBitMap, temp);
+                        cn = CNode<T>(newBitMap, temp);
                         cn.newBitMap & flag = 1;
                         cn.array[position] = sn;
                         // TODO: CAS on curr->main
@@ -188,7 +198,7 @@ class CTrie
                     // If this is the same value, replace it with a new binding.
                     if(currHash == key.hashCode && curr->key.value == key.value)
                     {
-                        SNode<T> sn = new SNode<T>(key, t_SNode, false);
+                        SNode<T> sn = SNode<T>(key, t_SNode, false);
                         // TODO: CAS on curr
                         curr = sn;
                         return(curr == sn);
@@ -198,7 +208,7 @@ class CTrie
                     {
                         // Create new CNode containing SNode with this SNode and the new key
                         CNode<T> cn2;
-                        SNode<T> sn = new SNode<T>(key, t_SNode, false);
+                        SNode<T> sn = SNode<T>(key, t_SNode, false);
                         int i = calculateIndex(key, level, cn2);
                         int j = calculateIndex(curr->key, level, cn2);
                         cn2->array[i] = sn;
@@ -380,15 +390,15 @@ class CTrie
     {
         
     }
-
-    // Return number of bits set to "1" in a given integer bit map.
-    int popCount(int bitMap)
-    {
-        bitMap -= ((bitMap>>1) & SK5);
-        bitMap = (bitMap & SK3) + ((bitMap >> 2) & SK3);
-        bitMap = (bitMap & SKF0) + ((bitMap >> 4) & SKF0);
-        bitMap += bitMap >> 8;
-        return ((bitMap + (bitMap >> 16)) & 0x3F);
-    }
     
 };
+
+int main(void)
+{
+    CTrie<int> myTrie;
+    KeyType<int> key1 = KeyType<int>(1);
+    myTrie.insert(key1);
+    KeyType<int> key2 = KeyType<int>(69);
+    myTrie.insert(key2);
+    return 0;
+}
