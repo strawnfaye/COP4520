@@ -92,14 +92,14 @@ struct CNode
         array[i] = node;
     }
 
-    NodePtr *copyArray(NodePtr *from)
+    NodePtr *copyArray(NodePtr *to)
     {
         int i;
         for(i = 0; i < LENGTH; i++)
         {
-            array[i] = from[i];
+            to[i] = array[i];
         }
-        return from;
+        return to;
     }
 };
 

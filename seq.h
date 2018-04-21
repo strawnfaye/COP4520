@@ -31,9 +31,9 @@ struct NodePtr
 struct KeyType 
 {
     int value;
-    int hashCode;
+    unsigned int hashCode;
 
-    KeyType(int value)
+    KeyType(char value)
     {
         this->value = value;
         this->hashCode = (value * HASHY) % (int) (std::pow(2, LENGTH));
@@ -45,6 +45,7 @@ struct SNode
     struct KeyType key;
     enum NodeType type;
     bool tomb;
+    NodePtr parent; 
 
     SNode(KeyType inKey, NodeType type, bool tomb)
     : key(inKey) 
@@ -71,23 +72,27 @@ struct INode
 
 struct CNode 
 {
-    int bmp;
+    unsigned int bmp;
+    INode *parentINode;
     NodePtr array[LENGTH];
+
+    void initArray()
+    {
+        for(int i = 0; i < LENGTH; i ++)
+            array[i].isNull = true;
+    }
 
     void addToArray(int i, NodePtr node)
     {
         array[i] = node;
     }
 
-    NodePtr *copyArray(NodePtr *to)
+    void copyArray(NodePtr *from)
     {
         int i;
         for(i = 0; i < LENGTH; i++)
-        {
-            to[i] = array[i];
-        }
-        return to;
-    }
+            array[i] = from[i];
+    }   
 };
 
 class CTrie 
@@ -103,5 +108,5 @@ class CTrie
 
     int calculateIndex(KeyType key, int level, CNode *cn);
     bool insert(int val);
-    bool iinsert(NodePtr curr, KeyType key, int level, NodePtr parent);
+    bool iinsert(NodePtr curr, KeyType key, int level, INode **parent);
 };
