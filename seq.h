@@ -109,4 +109,6 @@ class CTrie
     int calculateIndex(KeyType key, int level, CNode *cn);
     bool insert(int val);
     bool iinsert(NodePtr curr, KeyType key, int level, INode **parent);
+    bool lookup(int val);
+    bool ilookup(NodePtr curr, KeyType key, int level, INode **parent);
 };

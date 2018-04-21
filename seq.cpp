@@ -214,7 +214,7 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
                     // Create new INode to point to updated parent CNode
                     NodePtr in1Ptr = initNodePtr(t_INode, key);
                     in1Ptr.in = new INode(t_CNode, cn1Ptr);
-                    cn1Ptr.cn->parentINode = in1Ptr.in;
+                    cn1Ptr.cn->parentINode = *parent;
 
                     // TODO: CAS on parent CNode's parent INode
                     curr.sn->parent.cn->parentINode = in1Ptr.in;
@@ -229,6 +229,101 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
     }   
 }
 
+bool CTrie::lookup(int val)
+{
+    KeyType key = KeyType(val);
+    NodePtr curr;
+    curr.in = root;
+    curr.type = t_INode;
+    // If root is null, tree is empty.
+    if(curr.in == NULL)
+    {
+        return false;
+    }
+    // If INode has no main, set root bak to NULL before continuing.
+    else if(curr.in->main.isNull)
+    {
+        // TODO: CAS on root
+        root = NULL;
+        return lookup(key.value);
+    }
+    // Read next node below INode.
+    else
+    {
+        int found = ilookup(curr, key, -1, &root);
+        if(found != RESTART)
+        {
+            if(found == NOTFOUND)
+                return false;
+        }
+        else
+            return lookup(key.value);
+    }
+    return true;
+}
+
+bool CTrie::ilookup(NodePtr curr, KeyType key, int level, INode **parent)
+{
+    switch(curr.type)
+    {
+        case t_CNode:
+        {
+            // Appropriate entry in array must be found.
+            int index = calculateIndex(key, level, curr.cn);
+            
+            // Bitmap shows no binding, terminate.
+            if(curr.cn->array[index].isNull)
+                return NOTFOUND;
+            
+            // Branch is in CNode, position is used an an index into array.
+            else
+            {
+                //position = (bitMap == 0xffffffff) ? index : foo.count();
+                NodePtr temp = curr.cn->array[index];
+                switch(temp.type)
+                {
+                    case t_INode: 
+                    {
+                        // Repeat operation recursively.
+                        return ilookup(temp.in->main, key, level+1, &(temp.in));
+                        break;
+                    }
+                    case t_SNode: 
+                    {
+                        // Return value if keys match.
+                        if(temp.sn->key.value == key.value)
+                            return key.value;
+                        else
+                            return NOTFOUND;
+                        break;
+                    }
+                    default: 
+                        return NOTFOUND;
+                }
+            }               
+            break;
+        }
+        case t_SNode: 
+        {
+            // TODO: If this is a tomb node, clean(parent)
+            if(curr.sn->tomb)
+            {
+                // clean
+            }
+            return RESTART;
+            break;
+        }
+        case t_INode:
+        {
+            return ilookup(curr.in->main, key, level + 1, &(curr.in));
+            break;
+        }
+        default: 
+            return NOTFOUND;
+    }
+}
+
+
 int main(void)
 {
     std::cout << "ayyy in program.\n";
@@ -238,6 +333,8 @@ int main(void)
     std::cout << "Returned from insert(1).\n";
     myTrie.insert(12);
     std::cout << "Returned from insert(2).\n";
+    myTrie.lookup(1);
+    myTrie.lookup(12);
 
     return 0;
 }
