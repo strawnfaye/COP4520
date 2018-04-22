@@ -87,6 +87,11 @@ struct CNode
         array[i] = node;
     }
 
+    void removeFromArray(int i)
+    {
+        array[i].isNull = true;
+    }
+
     void copyArray(NodePtr *from)
     {
         int i;
@@ -111,4 +116,6 @@ class CTrie
     bool iinsert(NodePtr curr, KeyType key, int level, INode **parent);
     bool lookup(int val);
     bool ilookup(NodePtr curr, KeyType key, int level, INode **parent);
+    bool remove(int val);
+    int iremove(NodePtr curr, KeyType key, int level, INode **parent);
 };

@@ -66,13 +66,13 @@ bool CTrie::insert(int val)
             int i = calculateIndex(key, 0, cnPtr.cn);
             std::cout << "Inserting " << key.value << " into array at root level and index " << i << ".\n";
             cnPtr.cn->addToArray(i, snPtr);
-            snPtr.sn->parent = cnPtr;
+            cnPtr.cn->array[i].sn->parent = cnPtr;
             // Initialize new INode's main to the new CNode.
-            inPtr.in = (new INode(t_CNode, cnPtr));
-            cnPtr.cn->parentINode = inPtr.in;
+            inPtr.in = (new INode(t_CNode, cnPtr));    
             
             // TODO: Compare and swap INode at root.
             root = inPtr.in;
+            root->main.cn->parentINode = root;
         } while(root != inPtr.in);
         std::cout << "Successful insertion at root. Root is pointing to a " << root->type << "\n";
         return true;    
@@ -131,13 +131,14 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
                 //newBitMap |= flag;
                 cnPtr.cn->bmp = newBitMap;
                 cnPtr.cn->addToArray(position, snPtr);
-                snPtr.sn->parent = cnPtr;
+                cnPtr.cn->array[position].sn->parent = cnPtr;
 
                 // Create new INode to point to updated CNode
-                inPtr.in = new INode(t_CNode, cnPtr);
                 cnPtr.cn->parentINode = *parent;
+                inPtr.in = new INode(t_CNode, cnPtr);
                 
-                // TODO: CAS on parent INode
+                // TODO: CAS on parent INode ***ERROR: changes address of parent to address of inPtr.in 
+                // instead of of updating root with inPtr.in's values.
                 *parent = inPtr.in;
                 return(true);
             }
@@ -147,7 +148,7 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
         {
             std::cout << "Recursing bc INode.\n";
             // Repeat operation recursively.
-            return iinsert(curr.in->main, key, level+1, parent);
+            return iinsert(curr.in->main, key, level+1, &(curr.in));
             break;
         }
         case t_SNode: 
@@ -190,18 +191,19 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
                     // Create new CNode containing current and new SNodes
                     NodePtr cn2Ptr = initNodePtr(t_CNode, key);
                     NodePtr snPtr = initNodePtr(t_SNode, key);
+                    NodePtr oldsnPtr = curr;
 
                     int i = calculateIndex(key, level+1, cn2Ptr.cn);
                     int j = calculateIndex(curr.sn->key, level+1, cn2Ptr.cn);
                     cn2Ptr.cn->addToArray(i, snPtr);
-                    cn2Ptr.cn->addToArray(j, curr);
-                    snPtr.sn->parent = cn2Ptr;
-                    curr.sn->parent = cn2Ptr;
-
+                    cn2Ptr.cn->addToArray(j, oldsnPtr);
+                    
                     // Create new INode to point to new CNode
                     NodePtr in2Ptr = initNodePtr(t_INode, key);
-                    in2Ptr.in = new INode(t_CNode, cn2Ptr);
                     cn2Ptr.cn->parentINode = in2Ptr.in;
+                    cn2Ptr.cn->array[i].sn->parent = cn2Ptr;
+                    cn2Ptr.cn->array[j].sn->parent = cn2Ptr;
+                    in2Ptr.in = new INode(t_CNode, cn2Ptr);                  
 
                     // Create updated version of parent CNode so that it points to new INode at position SNode is moving from.
                     NodePtr cn1Ptr = initNodePtr(t_CNode, key);
@@ -213,8 +215,8 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
 
                     // Create new INode to point to updated parent CNode
                     NodePtr in1Ptr = initNodePtr(t_INode, key);
+                    in1Ptr.cn->parentINode = *parent;
                     in1Ptr.in = new INode(t_CNode, cn1Ptr);
-                    cn1Ptr.cn->parentINode = *parent;
 
                     // TODO: CAS on parent CNode's parent INode
                     curr.sn->parent.cn->parentINode = in1Ptr.in;
@@ -319,9 +321,122 @@ bool CTrie::ilookup(NodePtr curr, KeyType key, int level, INode **parent)
             break;
         }
         default: 
+        {
+            //clean
             return NOTFOUND;
+        }
     }
 }
+
+bool CTrie::remove(int val)
+{
+    KeyType key = KeyType(val);
+    NodePtr curr;
+    curr.in = root;
+    // If root is null, tree is empty.
+    if(curr.in == NULL)
+        return NOTFOUND;
+    else if(curr.in->main.isNull)
+    {
+        // TODO: CAS on root
+        return remove(val);
+    }
+    else
+    {
+        int result = iremove(curr, key, -1, &root);
+        if(result != RESTART)
+        {
+            if(result == NOTFOUND)
+                return false;
+            return true;
+        }
+        else
+            remove(val);
+    }
+    return true;
+}
+
+int CTrie::iremove(NodePtr curr, KeyType key, int level, INode **parent)
+{
+    switch(curr.type)
+    {
+        case t_CNode: 
+        {
+            // Appropriate entry in array must be found.
+            // int index = (key->hashCode >> level & 0x1f);
+            // int bitMap = curr->main.bmp;
+            // int flag = 1 << index;
+            // int mask = flag - 1;
+            int position = calculateIndex(key, level, curr.cn);
+            int ret;
+            // Binding not found.
+            if(curr.cn->array[position].isNull)
+                return NOTFOUND;
+            else
+            {
+                // std::bitset<LENGTH> foo(bitMap & mask);
+                // position = foo.count();
+                // TODO: start compression.
+                NodePtr temp = curr.cn->array[position];
+                return iremove(temp, key, level, parent);
+                // if(ret == NOTFOUND || ret == RESTART)
+                //     return ret;
+                // TODO: && tombCompress() vvv
+                // if((*parent) != NULL)
+                //     std::cout << "contract parent" << std::endl;
+
+                break;
+            }
+            
+        }
+        case t_INode:
+        {
+            return iremove(curr.in->main, key, level+1, &(curr.in));
+            break;
+        }
+        case t_SNode: 
+        {
+            if(curr.sn->tomb)
+            {
+                if(parent != NULL)
+                // clean()
+                return RESTART;
+            }
+            // Value is found.
+            if(curr.sn->key.value == key.value)
+            {
+                int position = calculateIndex(key, level, curr.sn->parent.cn);
+
+                // Create updated version of CNode
+                NodePtr cnPtr = initNodePtr(t_CNode, key);
+                cnPtr.cn->copyArray(curr.sn->parent.cn->array);
+                cnPtr.cn->removeFromArray(position);
+                cnPtr.cn->parentINode = *parent;
+                
+                // Create new INode to point to updated CNode
+                NodePtr inPtr = initNodePtr(t_INode, key);
+                inPtr.in = new INode(t_CNode, cnPtr);
+
+                // TODO: compare and swap on CNode's parent INode
+                *parent = inPtr.in;
+                // If CAS, return sn.v else RESTART
+                if(*parent == inPtr.in)
+                    return key.value;
+                else
+                    return RESTART;
+            }
+            else
+                return NOTFOUND;
+            break;
+        }
+        default:
+        {
+            return NOTFOUND;
+        }                       
+    }
+    return NOTFOUND;
+}
+
 
 
 int main(void)
@@ -335,6 +450,7 @@ int main(void)
     std::cout << "Returned from insert(2).\n";
     myTrie.lookup(1);
     myTrie.lookup(12);
+    myTrie.remove(1);
 
     return 0;
 }
