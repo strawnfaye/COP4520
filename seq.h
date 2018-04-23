@@ -72,7 +72,6 @@ struct INode
 
 struct CNode 
 {
-    unsigned int bmp;
     INode *parentINode;
     NodePtr array[LENGTH];
 
@@ -121,7 +120,7 @@ class CTrie
         root = NULL;
     }
 
-    int calculateIndex(KeyType key, int level, CNode *cn);
+    int calculateIndex(KeyType key, int level);
     bool insert(int val);
     bool iinsert(NodePtr curr, KeyType key, int level, INode **parent);
     bool lookup(int val);
