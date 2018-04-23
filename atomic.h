@@ -19,36 +19,33 @@ enum NodeType
     t_SNode
 };
 
-// A Generic "node" object that holds pointers to
-// each type of node, the type of the node it's actually holding,
-// and a null marker.
 struct NodePtr
 {
     enum NodeType type;
-    std::atomic<struct SNode> *sn;
+    struct SNode *sn;
     std::atomic<struct INode> *in;
-    std::atomic<struct CNode> *cn;
+    struct CNode *cn;
     bool isNull;
 };
 
 struct KeyType 
 {
     int value;
-    int hashCode;
+    unsigned int hashCode;
 
-    KeyType(int value)
+    KeyType(char value)
     {
         this->value = value;
         this->hashCode = (value * HASHY) % (int) (std::pow(2, LENGTH));
     }
 };
 
-// Singleton node.
 struct SNode
 {
     struct KeyType key;
     enum NodeType type;
     bool tomb;
+    NodePtr parent; 
 
     SNode(KeyType inKey, NodeType type, bool tomb)
     : key(inKey) 
@@ -59,55 +56,92 @@ struct SNode
     }
 };
 
-// Indirection node.
 struct INode 
 {
     enum NodeType type;
     struct NodePtr main;
 
     INode(NodeType type, NodePtr inMain)
+    : main(inMain)
     {
         main = inMain;
-        this->type = type;
+        this->type = type;   
     }
+
 };
 
-// CTrie node - contains array of pointers to both
-// SNodes and INodes, and a bitmap for efficient hashing.
 struct CNode 
 {
-    unsigned int bmp;
+    std::atomic<INode> *parentINode;
     NodePtr array[LENGTH];
+    int numElements;
 
     void initArray()
     {
-        for(int i = 0; i < LENGTH; i++)
-        {
+        for(int i = 0; i < LENGTH; i ++)
             array[i].isNull = true;
-        }
+        numElements = 0;
     }
 
     void addToArray(int i, NodePtr node)
     {
         array[i] = node;
+        numElements++;
     }
 
-    NodePtr *copyArray(NodePtr *to)
+    void removeFromArray(int i)
+    {
+        array[i].isNull = true;
+        numElements--;
+    }
+
+    void copyArray(NodePtr *from, int num)
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+            array[i] = from[i];
+        numElements = num;
+    }  
+
+    void updateParentRef(NodePtr newParent)
     {
         int i;
         for(i = 0; i < LENGTH; i++)
         {
-            to[i] = array[i];
+            if(array[i].type == t_SNode)
+                array[i].sn->parent = newParent;
         }
-        return to;
+    }
+
+    void removeNullINodes()
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+        {
+            if(array[i].type == t_INode && array[i].in->load().main.isNull)
+            {
+                array[i].isNull = true;
+                numElements--;
+            }
+        }
+    }
+
+    int isTombINode()
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+        {
+            if(array[i].type == t_INode && array[i].in->load().main.isNull)
+                return i;
+        }
+        return NOTFOUND;
     }
 };
 
-// Lock-Free, Concurrent, Resizeable Hash Array Mapped Trie.
 class CTrie 
 {
     private:
-    std::atomic<INode> *root;  
+    std::atomic<INode> *root;
 
     public:
     CTrie()
@@ -115,10 +149,13 @@ class CTrie
         root = NULL;
     }
 
-    int calculateIndex(KeyType key, int level, CNode *cn);
+    int calculateIndex(KeyType key, int level);
     bool insert(int val);
-    bool iinsert(NodePtr curr, KeyType key, int level, NodePtr parent);
+    bool iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent);
     bool lookup(int val);
-    int ilookup(NodePtr curr, KeyType key, int level, NodePtr parent);
-
+    int ilookup(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent);
+    bool remove(int val);
+    int iremove(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent);
+    NodePtr toWeakTomb(NodePtr node);
+    bool tombCompress(std::atomic<INode> **parent);
 };
