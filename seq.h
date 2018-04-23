@@ -97,7 +97,17 @@ struct CNode
         int i;
         for(i = 0; i < LENGTH; i++)
             array[i] = from[i];
-    }   
+    }  
+
+    void updateParentRef(NodePtr newParent)
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+        {
+            if(array[i].type == t_SNode)
+                array[i].sn->parent = newParent;
+        }
+    } 
 };
 
 class CTrie 
@@ -115,7 +125,7 @@ class CTrie
     bool insert(int val);
     bool iinsert(NodePtr curr, KeyType key, int level, INode **parent);
     bool lookup(int val);
-    bool ilookup(NodePtr curr, KeyType key, int level, INode **parent);
+    int ilookup(NodePtr curr, KeyType key, int level, INode **parent);
     bool remove(int val);
     int iremove(NodePtr curr, KeyType key, int level, INode **parent);
 };

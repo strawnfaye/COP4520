@@ -80,7 +80,8 @@ bool CTrie::insert(int val)
     // Root points to valid INode.
     else 
     {
-        while(!iinsert(currRoot, key, -1, &root))
+        bool result = iinsert(currRoot, key, -1, &root);
+        while(!result) 
         {
             std::cout << "recursing again.\n";
             return insert(val);
@@ -131,15 +132,16 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
                 //newBitMap |= flag;
                 cnPtr.cn->bmp = newBitMap;
                 cnPtr.cn->addToArray(position, snPtr);
-                cnPtr.cn->array[position].sn->parent = cnPtr;
-
+                //cnPtr.cn->array[position].sn->parent = cnPtr;
+                // Update all other array entries' parent reference.
+                cnPtr.cn->updateParentRef(cnPtr);
                 // Create new INode to point to updated CNode
                 cnPtr.cn->parentINode = *parent;
                 inPtr.in = new INode(t_CNode, cnPtr);
                 
                 // TODO: CAS on parent INode ***ERROR: changes address of parent to address of inPtr.in 
                 // instead of of updating root with inPtr.in's values.
-                *parent = inPtr.in;
+                **parent = *inPtr.in;
                 return(true);
             }
             break;
@@ -201,8 +203,9 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
                     // Create new INode to point to new CNode
                     NodePtr in2Ptr = initNodePtr(t_INode, key);
                     cn2Ptr.cn->parentINode = in2Ptr.in;
-                    cn2Ptr.cn->array[i].sn->parent = cn2Ptr;
-                    cn2Ptr.cn->array[j].sn->parent = cn2Ptr;
+                    //cn2Ptr.cn->array[i].sn->parent = cn2Ptr;
+                    //cn2Ptr.cn->array[j].sn->parent = cn2Ptr;
+                    cn2Ptr.cn->updateParentRef(cn2Ptr);
                     in2Ptr.in = new INode(t_CNode, cn2Ptr);                  
 
                     // Create updated version of parent CNode so that it points to new INode at position SNode is moving from.
@@ -264,7 +267,7 @@ bool CTrie::lookup(int val)
     return true;
 }
 
-bool CTrie::ilookup(NodePtr curr, KeyType key, int level, INode **parent)
+int CTrie::ilookup(NodePtr curr, KeyType key, int level, INode **parent)
 {
     switch(curr.type)
     {
@@ -418,7 +421,7 @@ int CTrie::iremove(NodePtr curr, KeyType key, int level, INode **parent)
                 inPtr.in = new INode(t_CNode, cnPtr);
 
                 // TODO: compare and swap on CNode's parent INode
-                *parent = inPtr.in;
+                **parent = *inPtr.in;
                 // If CAS, return sn.v else RESTART
                 if(*parent == inPtr.in)
                     return key.value;
