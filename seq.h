@@ -74,28 +74,33 @@ struct CNode
 {
     INode *parentINode;
     NodePtr array[LENGTH];
+    int numElements;
 
     void initArray()
     {
         for(int i = 0; i < LENGTH; i ++)
             array[i].isNull = true;
+        numElements = 0;
     }
 
     void addToArray(int i, NodePtr node)
     {
         array[i] = node;
+        numElements++;
     }
 
     void removeFromArray(int i)
     {
         array[i].isNull = true;
+        numElements--;
     }
 
-    void copyArray(NodePtr *from)
+    void copyArray(NodePtr *from, int num)
     {
         int i;
         for(i = 0; i < LENGTH; i++)
             array[i] = from[i];
+        numElements = num;
     }  
 
     void updateParentRef(NodePtr newParent)
@@ -106,7 +111,31 @@ struct CNode
             if(array[i].type == t_SNode)
                 array[i].sn->parent = newParent;
         }
-    } 
+    }
+
+    void removeNullINodes()
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+        {
+            if(array[i].type == t_INode && array[i].in->main.isNull)
+            {
+                array[i].isNull = true;
+                numElements--;
+            }
+        }
+    }
+
+    int isTombINode()
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+        {
+            if(array[i].type == t_INode && array[i].in->main.isNull)
+                return i;
+        }
+        return NOTFOUND;
+    }
 };
 
 class CTrie 
@@ -127,4 +156,6 @@ class CTrie
     int ilookup(NodePtr curr, KeyType key, int level, INode **parent);
     bool remove(int val);
     int iremove(NodePtr curr, KeyType key, int level, INode **parent);
+    NodePtr toWeakTomb(NodePtr node);
+    bool tombCompress(INode **parent);
 };

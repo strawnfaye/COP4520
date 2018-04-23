@@ -102,7 +102,7 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
                 NodePtr inPtr = initNodePtr(t_INode, key);
                 
                 // Update array.
-                cnPtr.cn->copyArray(curr.cn->array);
+                cnPtr.cn->copyArray(curr.cn->array, curr.cn->numElements);
                 cnPtr.cn->addToArray(position, snPtr);
 
                 // Update all other array entries' parent reference.
@@ -175,7 +175,7 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode **parent)
 
                     // Create updated version of parent CNode so that it contains new INode at position SNode is moving from.
                     NodePtr cn1Ptr = initNodePtr(t_CNode, key);
-                    cn1Ptr.cn->copyArray(curr.sn->parent.cn->array);
+                    cn1Ptr.cn->copyArray(curr.sn->parent.cn->array, curr.sn->parent.cn->numElements);
                     i = calculateIndex(curr.sn->key, level);
                     cn1Ptr.cn->addToArray(j, in2Ptr);
 
@@ -367,7 +367,7 @@ int CTrie::iremove(NodePtr curr, KeyType key, int level, INode **parent)
 
                 // Create updated version of CNode
                 NodePtr cnPtr = initNodePtr(t_CNode, key);
-                cnPtr.cn->copyArray(curr.sn->parent.cn->array);
+                cnPtr.cn->copyArray(curr.sn->parent.cn->array, curr.sn->parent.cn->numElements);
                 cnPtr.cn->removeFromArray(position);
                 cnPtr.cn->parentINode = *parent;
                 
@@ -395,7 +395,114 @@ int CTrie::iremove(NodePtr curr, KeyType key, int level, INode **parent)
     return NOTFOUND;
 }
 
+NodePtr CTrie::toWeakTomb(NodePtr node)
+{
+    NodePtr temp = node;
+    temp.cn->removeNullINodes();
 
+    // If number of nodes in CNode that are not null-INodes is greater than
+    // one, then there is nothing to entomb.
+    if(temp.cn->numElements > 1)
+        return node;
+    // Single branch exists
+    if(temp.cn->numElements == 1)
+    {
+        int i;
+        for(i = 0; i < LENGTH; i++)
+        {
+            if(!node.cn->array[i].isNull)
+            {
+                NodePtr s = node.cn->array[i];
+                // If the single branch below this CNode is another CNode, return a copy of current
+                // CNode with null-INodes removed.
+                if(s.type == t_INode && s.in->main.type == t_CNode)
+                    return temp;
+                // If single branch is an SNode, return it as a tomb node.
+                else if(s.type == t_SNode)
+                {
+                    s.sn->tomb = true;
+                    return s;
+                }
+            }         
+        }
+    }
+    temp.isNull = true;
+    return temp;
+}
+
+bool CTrie::tombCompress(INode **parent)
+{
+    INode *temp1 = *parent;
+    NodePtr temp = temp1->main;
+    if(temp.type != t_CNode)
+        return false;
+    NodePtr weakTomb = toWeakTomb(temp);
+    if(temp.cn == weakTomb.cn)
+        return false;
+    
+    // Create new INode to point to this weak tomb
+    KeyType dummy = KeyType(0);
+    NodePtr inPtr = initNodePtr(t_INode, dummy);
+    
+    NodeType type = weakTomb.type;
+    if(type == t_CNode)
+    {
+        weakTomb.cn->parentINode = *parent;
+        inPtr.in = new INode(t_CNode, weakTomb);
+    }
+    else if(type == t_SNode)
+    {
+        weakTomb.sn->parent.cn->parentINode = *parent;
+        inPtr.in = new INode(t_SNode, weakTomb);
+    }
+    else
+        inPtr.isNull = true;
+
+    // TODO: CAS on parent INode
+    **parent = *inPtr.in;
+    if(*parent == inPtr.in)
+    {
+        // Parent should be contracted.
+        if(weakTomb.isNull || weakTomb.type == t_SNode)
+            return true;
+        else
+            return false;
+    }
+    // Continually try to entomb current CNode until success or nothing to entomb.
+    else
+        return tombCompress(parent);
+}
+
+/*
+NodePtr toCompressed(NodePtr node)
+{
+    int num = node.cn->numElements;
+
+    if(num == 1)
+    {
+        int i = node.cn->isTombINode();
+        if(i != NOTFOUND)
+            return node.cn->array[i].in->main;
+    }
+    NodePtr temp = node;
+    temp.cn->removeNullINodes();
+}
+
+NodePtr resurrect(NodePtr node)
+{
+
+}
+
+void clean(INode parent)
+{
+
+}
+
+void contractParent(INode parent, unsigned int hashCode, int level)
+{
+
+}
+*/
 
 int main(void)
 {
