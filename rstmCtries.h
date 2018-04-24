@@ -23,7 +23,7 @@ struct NodePtr
 {
     enum NodeType type;
     struct SNode *sn;
-    std::atomic<struct INode> *in;
+    struct INode* in;
     struct CNode *cn;
     bool isNull;
 };
@@ -118,7 +118,7 @@ struct CNode
         int i;
         for(i = 0; i < LENGTH; i++)
         {
-            if(array[i].type == t_INode && array[i].in->load().main.isNull)
+            if(array[i].type == t_INode && array[i].in->main.isNull)
             {
                 array[i].isNull = true;
                 numElements--;
@@ -131,7 +131,7 @@ struct CNode
         int i;
         for(i = 0; i < LENGTH; i++)
         {
-            if(array[i].type == t_INode && array[i].in->load().main.isNull)
+            if(array[i].type == t_INode && array[i].in->main.isNull)
                 return i;
         }
         return NOTFOUND;
@@ -151,11 +151,11 @@ class CTrie
 
     int calculateIndex(KeyType key, int level);
     bool insert(int val);
-    bool iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent);
+    bool iinsert(NodePtr curr, KeyType key, int level, INode **parent);
     bool lookup(int val);
-    int ilookup(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent);
+    int ilookup(NodePtr curr, KeyType key, int level, INode **parent);
     bool remove(int val);
-    int iremove(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent);
+    int iremove(NodePtr curr, KeyType key, int level, INode **parent);
     NodePtr toWeakTomb(NodePtr node);
-    bool tombCompress(std::atomic<INode> **parent);
+    bool tombCompress(INode **parent);
 };

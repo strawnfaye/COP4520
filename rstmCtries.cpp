@@ -28,9 +28,9 @@ SNode *initSNode(KeyType key)
 
 std::atomic<INode> *initINode(NodePtr cn)
 {
-    std::atomic<INode> *in;
+    INode* in;
     INode temp = INode(t_CNode, cn);
-    std::atomic_store(in, temp);
+    TM_WRITE(*in, temp);
     return in;
 }
 
@@ -50,10 +50,9 @@ bool CTrie::insert(int val)
 {
     KeyType key = KeyType(val);
     NodePtr currRoot;
-    currRoot.in = TM_READ(root);
-    currRoot.type = t_INode;
+    INode currRoot = TM_READ(*root);
     // If root is null or its next pointer is null, then tree is empty.
-    if(currRoot.in == NULL || (currRoot.in->load().main.isNull))
+    if(currRoot.main.isNull)
     {
         // Create new CNode that contains the new SNode with the key, and a new INode to point to it.
         NodePtr cnPtr = initNodePtr(t_CNode, key);
@@ -112,7 +111,7 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode** parent)
                 // Update all other array entries' parent reference.
                 cnPtr.cn->updateParentRef(cnPtr);
                 // Create new INode to point to updated CNode
-                cnPtr.cn->parentINode->store(**parent);
+				TM_WRITE(cnPtr.cn->parentINode, **parent);
                 //inPtr.in = new INode(t_CNode, cnPtr);
                 INode inTemp = INode(t_CNode, cnPtr);
                 
@@ -146,7 +145,7 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode** parent)
                 if(currHash == key.hashCode && curr.sn->key.value == key.value)
                 {
                     NodePtr snPtr = initNodePtr(t_SNode, key);
-                    snPtr.sn->parent = curr.sn->parent;
+                    TM_WRITE(snPtr.sn->parent, curr.sn->parent);
 
                     // TODO: modify so that only INodes are CAS'd
                     // Create new CNode to update this SNode's parent CNode
@@ -209,7 +208,7 @@ bool CTrie::lookup(int val)
 {
     KeyType key = KeyType(val);
     NodePtr curr;
-    curr.in = root;
+    curr.in = TM_READ(root);
     curr.type = t_INode;
     // If root is null, tree is empty.
     if(curr.in == NULL)
