@@ -146,7 +146,11 @@ class CTrie
     public:
     CTrie()
     {
-        root = NULL;
+		NodePtr nullRootPtr;
+		nullRootPtr.type = t_INode;
+		nullRootPtr.isNull = true;
+		INode nullRoot = INode(t_INode, nullRootPtr);
+		root->store(nullRoot);
     }
 
     int calculateIndex(KeyType key, int level);

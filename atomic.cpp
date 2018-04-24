@@ -4,6 +4,7 @@
 #include<atomic>
 #include<chrono>
 #include<functional>
+#include<pthread.h>
 #include "atomic.h"
 
 // Find appropriate index in a CNode's array using a key's hash code.
@@ -49,35 +50,35 @@ NodePtr initNodePtr(NodeType type, KeyType key)
 bool CTrie::insert(int val)
 {
     KeyType key = KeyType(val);
-    NodePtr currRoot;
-    currRoot.in = root;
-    currRoot.type = t_INode;
+    INode currRoot = root->load();
     // If root is null or its next pointer is null, then tree is empty.
-    if(currRoot.in == NULL || (currRoot.in->load().main.isNull))
+    if(currRoot.main.isNull)
     {
         // Create new CNode that contains the new SNode with the key, and a new INode to point to it.
         NodePtr cnPtr = initNodePtr(t_CNode, key);
         NodePtr snPtr = initNodePtr(t_SNode, key);
         //NodePtr inPtr = initNodePtr(t_INode, key);
         INode temp = INode(t_CNode, cnPtr);
-        INode tempRoot = root->load();
         do
         {
             int i = calculateIndex(key, 0);
             cnPtr.cn->addToArray(i, snPtr);
             cnPtr.cn->array[i].sn->parent = cnPtr;
-
+            cnPtr.cn->parentINode = root;
             // Initialize new INode's main to the new CNode.
             temp = INode(t_CNode, cnPtr);
             
             // Compare and swap INode at root.
-        } while(!root->compare_exchange_strong(tempRoot, temp));
+        } while(!root->compare_exchange_strong(currRoot, temp));
         return true;    
     }
     // Root points to valid INode.
     else 
     {
-        bool result = iinsert(currRoot, key, -1, &root);
+        NodePtr tempRoot;
+        tempRoot.in = root;
+        tempRoot.type = t_INode;
+        bool result = iinsert(tempRoot, key, -1, &root);
         while(!result) 
         {
             return insert(val);
@@ -114,11 +115,11 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **p
 
                 // Update all other array entries' parent reference.
                 cnPtr.cn->updateParentRef(cnPtr);
+
                 // Create new INode to point to updated CNode
-                cnPtr.cn->parentINode->store(**parent);
-                //inPtr.in = new INode(t_CNode, cnPtr);
+                cnPtr.cn->parentINode = *parent;
                 INode inTemp = INode(t_CNode, cnPtr);
-                INode rootTemp = (**parent).load();
+                INode rootTemp = (**parent).load();          
                 
                 // CAS on parent INode.
                 return((**parent).compare_exchange_strong(rootTemp, inTemp));
@@ -518,14 +519,17 @@ void contractParent(INode parent, unsigned int hashCode, int level)
 }
 */
 
+void startThread()
+{
+    std::cout << "I'm a thread.\n";
+}
+
 int main(void)
 {
-    CTrie::CTrie myTrie;
+    int numThreads = 1;
+    CTrie myTrie;
+
     myTrie.insert(1);
     myTrie.insert(12);
-    myTrie.lookup(1);
-    myTrie.lookup(12);
-    myTrie.remove(1);
-
-    return 0;
+    myTrie.
 }
