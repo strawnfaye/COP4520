@@ -216,7 +216,7 @@ bool CTrie::lookup(int val)
         return false;
     }
     // If INode has no main, set root bak to NULL before continuing.
-    else if(curr.in->load().main.isNull)
+    else if(curr.in->main.isNull)
     {
         // TODO: CAS on root
         root = NULL;
