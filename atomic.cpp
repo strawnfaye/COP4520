@@ -212,24 +212,19 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **p
 bool CTrie::lookup(int val)
 {
     KeyType key = KeyType(val);
-    NodePtr curr;
-    curr.in = root;
-    curr.type = t_INode;
+    INode tempRoot = root->load();
     // If root is null, tree is empty.
-    if(curr.in == NULL)
+    if(tempRoot.main.isNull)
     {
+        // TODO: If INode has no main, set root bak to NULL before continuing.
         return false;
-    }
-    // If INode has no main, set root bak to NULL before continuing.
-    else if(curr.in->load().main.isNull)
-    {
-        // TODO: CAS on root
-        root = NULL;
-        return lookup(key.value);
     }
     // Read next node below INode.
     else
     {
+        NodePtr curr;
+        curr.in = root;
+        curr.type = t_INode;
         int found = ilookup(curr, key, -1, &root);
         if(found != RESTART)
         {
@@ -308,19 +303,21 @@ int CTrie::ilookup(NodePtr curr, KeyType key, int level, std::atomic<INode> **pa
 bool CTrie::remove(int val)
 {
     KeyType key = KeyType(val);
-    NodePtr curr;
-    curr.in = root;
+    // NodePtr curr;
+    // curr.in = root;
+    INode curr = root->load();
     // If root is null, tree is empty.
-    if(curr.in == NULL)
-        return NOTFOUND;
-    else if(curr.in->load().main.isNull)
+    if(curr.main.isNull)
     {
-        // TODO: CAS on root
-        return remove(val);
+        // TODO: CAS on root for compression
+        return NOTFOUND;
     }
     else
     {
-        int result = iremove(curr, key, -1, &root);
+        NodePtr tempRoot;
+        tempRoot.in = root;
+        tempRoot.type = t_INode;
+        int result = iremove(tempRoot, key, -1, &root);
         if(result != RESTART)
         {
             if(result == NOTFOUND)
@@ -531,5 +528,6 @@ int main(void)
 
     myTrie.insert(1);
     myTrie.insert(12);
-    myTrie.
+    myTrie.lookup(1);
+    myTrie.remove(12);
 }
