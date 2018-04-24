@@ -516,18 +516,24 @@ void contractParent(INode parent, unsigned int hashCode, int level)
 }
 */
 
-void startThread()
-{
-    std::cout << "I'm a thread.\n";
-}
-
 int main(void)
 {
     int numThreads = 1;
-    CTrie myTrie;
+    CTrie::CTrie myTrie;
+    
+    std::thread *arr[numThreads];
+    for(int i = 0 ; i < numThreads; i++)
+    {
+        arr[i] = new std::thread([&myTrie] ()
+        {
+            int val = rand() % 100;
+            myTrie.insert(val);
+        });
+    }
+    for(int i = 0; i < numThreads; i++)
+    {
+        arr[i]->join();
+    }
 
-    myTrie.insert(1);
-    myTrie.insert(12);
-    myTrie.lookup(1);
-    myTrie.remove(12);
+    return 0;
 }
