@@ -50,7 +50,7 @@ bool CTrie::insert(int val)
 {
     KeyType key = KeyType(val);
     NodePtr currRoot;
-    currRoot.in = root;
+    currRoot.in = TM_READ(root);
     currRoot.type = t_INode;
     // If root is null or its next pointer is null, then tree is empty.
     if(currRoot.in == NULL || (currRoot.in->load().main.isNull))
@@ -60,18 +60,15 @@ bool CTrie::insert(int val)
         NodePtr snPtr = initNodePtr(t_SNode, key);
         //NodePtr inPtr = initNodePtr(t_INode, key);
         INode temp = INode(t_CNode, cnPtr);
-        INode tempRoot = root->load();
-        do
-        {
-            int i = calculateIndex(key, 0);
-            cnPtr.cn->addToArray(i, snPtr);
-            cnPtr.cn->array[i].sn->parent = cnPtr;
+        int i = calculateIndex(key, 0);
+        cnPtr.cn->addToArray(i, snPtr);
+        cnPtr.cn->array[i].sn->parent = cnPtr;
 
-            // Initialize new INode's main to the new CNode.
-            temp = INode(t_CNode, cnPtr);
+        // Initialize new INode's main to the new CNode.
+        temp = INode(t_CNode, cnPtr);
             
-            // Compare and swap INode at root.
-        } while(!root->compare_exchange_strong(tempRoot, temp));
+        // write to root
+        TM_WRITE(*root, temp);
         return true;    
     }
     // Root points to valid INode.
@@ -86,7 +83,7 @@ bool CTrie::insert(int val)
     return true;
 }
 
-bool CTrie::iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **parent)
+bool CTrie::iinsert(NodePtr curr, KeyType key, int level, INode** parent)
 {
     switch(curr.type)
     {
@@ -118,10 +115,10 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **p
                 cnPtr.cn->parentINode->store(**parent);
                 //inPtr.in = new INode(t_CNode, cnPtr);
                 INode inTemp = INode(t_CNode, cnPtr);
-                INode rootTemp = (**parent).load();
                 
                 // CAS on parent INode.
-                return((**parent).compare_exchange_strong(rootTemp, inTemp));
+                TM_WRITE(**parent, inTemp);
+				return true;
             }
             break;
         }
@@ -194,11 +191,11 @@ bool CTrie::iinsert(NodePtr curr, KeyType key, int level, std::atomic<INode> **p
                     //in1Ptr.in = new INode(t_CNode, cn1Ptr);
                     INode in1Temp = INode(t_CNode, cn1Ptr);
                     
-                    INode rootTemp = (**parent).load();
                     
                     // CAS on parent CNode's parent INode
                     curr.sn->parent.cn->parentINode = in1Ptr.in;
-                    return(curr.sn->parent.cn->parentINode->compare_exchange_strong(rootTemp, in1Temp));
+                    TM_WRITE(curr.sn->parent.cn->parentINode, in1Temp);
+					return true;
                 }
             }
             break;

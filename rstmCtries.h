@@ -99,7 +99,7 @@ struct CNode
     {
         int i;
         for(i = 0; i < LENGTH; i++)
-            array[i] = from[i];
+            array[i] = TM_READ(from[i]);
         numElements = num;
     }  
 
@@ -141,7 +141,7 @@ struct CNode
 class CTrie 
 {
     private:
-    std::atomic<INode> *root;
+    INode *root;
 
     public:
     CTrie()
