@@ -9,5 +9,7 @@ This implementation is in-progress, and a paper describing its current state can
 
 
 References:
+
 (1) http://chara.epfl.ch/~prokopec/lcpc_ctries.pdf
+
 (2) https://infoscience.epfl.ch/record/64398/files/idealhashtrees.pdf
